@@ -1,0 +1,131 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Touch Test</title>
+    <link rel="Stylesheet" href="../bootstrap/css/bootstrap.css" />
+</head>
+<body>
+
+<canvas id='backgroundCanvas' width='1000' height='1000' style='z-index:2; opacity: 0.5; position:absolute;'>
+</canvas>
+
+Currently detected touch events:
+<div style='height:20em; overflow:hidden; border:solid 1px gray' />
+    <table id='myTable' class="table table-striped">
+        <thead id='myTableHead'>            
+        </thead>
+        <tbody id = 'myTableBody'>
+            <!-- Javascript is used to fill in this table when the user touches the screen -->
+        </tbody>
+    </table>
+</div>
+foo bar
+
+</body>
+<script src="touchpolyfill.js">
+</script>
+
+<script>
+    'use strict';
+    var tableMethods, canvasMethods;
+
+    window.addEventListener("touchstart", touch, false);
+    window.addEventListener("touchend", touch, false);
+    window.addEventListener("touchmove", touch, false);
+    window.addEventListener("touchcancel", touch, false);
+
+    //    document.ontouchstart = touch;
+    //    document.ontouchend = touch;
+    //    document.ontouchmove = touch;
+    //    document.ontouchcancel = touch;
+
+    function touch(e) {
+        var numberOfTouches, propertyList, i;
+
+        e.preventDefault();
+
+        tableMethods.clearTable();
+        canvasMethods.clearCanvas();
+
+        propertyList = getPropertyList(e.touches[0])
+        tableMethods.printHeader(propertyList);
+
+        numberOfTouches = e.touches.length;
+        for (i = 0; i < numberOfTouches; i++) {
+            tableMethods.printData(e.touches[i], propertyList);
+            canvasMethods.drawCircle(e.touches[i]);
+        }
+    }
+
+    // Return an array containing the names of the properties of the touch object.
+    function getPropertyList(touch) {
+        var array, x;
+        array = [];
+        for (x in touch) {
+            array.push(x);
+        }
+        return array;
+    }
+
+    // This creates a closure for the methods that print data about touch events in a table.
+    tableMethods = (function () {
+        var myTableHead, myTableBody;
+
+        myTableHead = document.getElementById('myTableHead');
+        myTableBody = document.getElementById('myTableBody');
+
+        function clearTable() {
+            myTableHead.innerHTML = '';
+            myTableBody.innerHTML = '';
+        }
+
+        function printHeader(propertyList) {
+            myTableHead.innerHTML = '<tr><th>' + propertyList.join('</th><th>') + '</th></tr>';
+        }
+
+        function printData(touch, propertyList) {
+            var i, rowHtml;
+            rowHtml = [];
+            for (i = 0; i < propertyList.length; i++) {
+                rowHtml.push('<td>' + touch[propertyList[i]] + '</td>');
+            }
+            myTableBody.innerHTML += rowHtml.join('');
+        }
+
+        return {
+            clearTable: clearTable,
+            printHeader: printHeader,
+            printData: printData
+        };
+    })();
+
+    // This creates a closure for the methods that print circles where the user touches the screen.
+    canvasMethods = (function () {
+        var backgroundCanvas, context;
+
+        backgroundCanvas = document.getElementById('backgroundCanvas');
+        context = backgroundCanvas.getContext('2d');
+
+        // Draw a white square over the entirety of the canvas.
+        function clearCanvas() {
+            context.fillStyle = '#FFFFFF';
+            context.fillRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+        }
+
+        function drawCircle(touch) {
+            context.beginPath();
+            context.arc(touch.clientX, touch.clientY, 50, 0, 2 * Math.PI, false);
+            context.fillStyle = 'green';
+            context.fill();
+            context.lineWidth = 5;
+            context.strokeStyle = '#003300';
+            context.stroke();
+        }
+
+        return {
+            clearCanvas: clearCanvas,
+            drawCircle: drawCircle
+        };
+    })();
+</script>
+</html>

@@ -4,7 +4,7 @@
 // cameron henlin, cam.henlin@gmail.com
 
 (function () {
-    if (typeof(window.ontouchstart) === "object") {
+    if (typeof (window.ontouchstart) === "object") {
         return;
     }
 
@@ -13,6 +13,22 @@
         return;
     }
 
+    // Add CSS to disable MS IE default scrolling functionality.
+    (function () {
+        var css = 'html { -ms-touch-action: none; }',
+            head = document.head || document.getElementsByTagName('head')[0],
+            style = document.createElement('style');
+
+        style.type = 'text/css';
+        if (style.styleSheet) {
+            style.styleSheet.cssText = css;
+        } else {
+            style.appendChild(document.createTextNode(css));
+        }
+
+        head.appendChild(style);
+    } ());
+
     // console.log("polyfill!");
     // event listener intercept
     var supportedEventsNames = ["touchstart", "touchmove", "touchend", "touchcancel", "touchleave"];
@@ -20,7 +36,7 @@
     // polyfill custom event
     var CustomEvent;
 
-    CustomEvent = function(event, params) {
+    CustomEvent = function (event, params) {
         var evt;
         params = params || {
             bubbles: false,
@@ -52,7 +68,7 @@
     // Touch events
     var generateTouchClonedEvent = function (sourceEvent, newName, canBubble, target, relatedTarget) {
         // console.log("generating touch cloned");
-        var touchHandler = function(event) {
+        var touchHandler = function (event) {
             // console.log("touch!");
             event.touches = [];
             event.touches.length = 1;
@@ -74,7 +90,7 @@
             return touchEvent;
         };
 
-        var touchChangedHandler = function(event) {
+        var touchChangedHandler = function (event) {
             // console.log("touchchanged!");
             event.changedTouches = [];
             event.changedTouches.length = 1;
@@ -91,6 +107,7 @@
 
             event.type = eventType;
             var touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
+            touchEvent.touches = event.changedTouches;
             touchEvent.changedTouches = event.changedTouches;
             touchEvent.type = eventType;
 
@@ -305,10 +322,10 @@
         //      break;
         //    case "touchleave":
         //      // console.log("touchleave");
-                var targetEvent = nameGenerator(eventName);
-                if (item['on' + targetEvent.toLowerCase()] !== undefined) {
-                    registerOrUnregisterEvent(item, targetEvent, function (evt) { eventGenerator(evt, eventName); }, enable);
-                }
+        var targetEvent = nameGenerator(eventName);
+        if (item['on' + targetEvent.toLowerCase()] !== undefined) {
+            registerOrUnregisterEvent(item, targetEvent, function (evt) { eventGenerator(evt, eventName); }, enable);
+        }
         //        break;
         //}
     };
@@ -424,14 +441,18 @@
     }
 
     (function () {
-        if (typeof(window.ontouchstart) === "object") {
+        if (typeof (window.ontouchstart) === "object") {
             return;
         }
         // Handling move on window to detect pointerleave/out/over
-        if (typeof(window.ontouchstart) === "undefined") {
+        if (typeof (window.ontouchstart) === "undefined") {
             window.addEventListener('pointerdown', function (eventObject) {
                 // console.log("pointerdownfired");
                 var touchPoint = eventObject;
+
+                if (eventObject.pointerType === 'mouse')
+                    return;
+
                 previousTargets[touchPoint.identifier] = touchPoint.target;
                 generateTouchEventProxyIfRegistered("touchenter", touchPoint, touchPoint.target, eventObject, true);
 
@@ -449,6 +470,9 @@
                 var touchPoint = eventObject;
                 var currentTarget = previousTargets[touchPoint.identifier];
 
+                if (eventObject.pointerType === 'mouse')
+                    return;
+
                 generateTouchEventProxyIfRegistered("touchend", touchPoint, currentTarget, eventObject, true);
                 generateTouchEventProxyIfRegistered("touchleave", touchPoint, currentTarget, eventObject, true);
 
@@ -463,6 +487,10 @@
                 // console.log("pointer move fired");
                 var touchPoint = eventObject;
                 var currentTarget = previousTargets[touchPoint.identifier];
+
+                if (eventObject.pointerType === 'mouse')
+                    return;
+
                 // If force preventDefault
                 if (currentTarget && checkPreventDefault(currentTarget) === true)
                     eventObject.preventDefault();
