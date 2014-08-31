@@ -4,15 +4,65 @@
 
 // jslint directive
 /*jslint browser: true, unparam: true, nomen: true*/
+/*global HTMLBodyElement, HTMLDivElement, HTMLImageElement, HTMLUListElement, HTMLAnchorElement, HTMLLIElement, HTMLTableElement, HTMLSpanElement, HTMLCanvasElement, SVGElement*/
 
 (function () {
+    // We should start using 'use strict' as soon as we can get rid of the implied globals.
     // 'use strict';
 
     var userAgent = navigator.userAgent,
         supportedEventsNames = ["touchstart", "touchmove", "touchend", "touchcancel", "touchleave"],
-        // commented out because not used
-        // upperCaseEventsNames = ["TouchStart", "TouchMove", "TouchEnd", "TouchCancel", "TouchLeave"],
-        previousTargets = {};
+    // commented out because not used
+    // upperCaseEventsNames = ["TouchStart", "TouchMove", "TouchEnd", "TouchCancel", "TouchLeave"],
+        previousTargets = {},
+        currentTouchesWrapper; // holds an object that keeps track of where the screen is being touched.
+
+    // a constructor for an object that wraps a W3C compliant TouchList.
+    function TouchListEmulation() {
+        var touchList = []; // an array of W3C compliant touch objects.
+
+        // constructor for W3C compliant touch object
+        // http://www.w3.org/TR/touch-events/
+        function Touch(identifier, target, screenX, screenY, clientX, clientY, pageX, pageY) {
+            this.identifier = identifier;
+            this.target = target;
+            this.screenX = screenX;
+            this.screenY = screenY;
+            this.clientX = clientX;
+            this.clientY = clientY;
+            this.pageX = pageX;
+            this.pageY = pageY;
+        }
+
+        // If this is a new touch, add it to the TouchList.
+        // If this is an existing touch, update it in the TouchList.
+        function addUpdateTouch(touch) {
+            var i;
+            for (i = 0; i < touchList.length; i += 1) {
+                if (touchList[i].identifier === touch.identifier) {
+                    touchList[i] = touch;
+                    return;
+                }
+            }
+            // If we finished the loop, then this is a new touch.
+            touchList.push(touch);
+        }
+
+        function removeTouch(identifier) {
+            var i;
+            for (i = 0; i < touchList.length; i += 1) {
+                if (touchList[i].identifier === identifier) {
+                    touchList.splice(i, 1);
+                }
+            }
+        }
+
+        // touchList is the actual W3C compliant TouchList object being emulated.
+        this.touchList = touchList;
+        this.Touch = Touch;
+        this.addUpdateTouch = addUpdateTouch;
+        this.removeTouch = removeTouch;
+    }
 
     // polyfill custom event
     function CustomEvent(event, params) {
@@ -41,13 +91,10 @@
         // console.log("generating touch cloned");
         function touchHandler(event) {
             var eventType,
+                touch,
                 touchEvent;
 
-            // console.log("touch!");
-            event.touches = [];
-            event.touches.length = 1;
-            event.touches[0] = event;
-            event.touches[0].identifier = event.pointerId;
+            // console.log("touch!");            
 
             eventType = "";
             if (event.type === "pointerdown") {
@@ -56,16 +103,25 @@
                 eventType = "touchmove";
             }
 
+            touch = new currentTouchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
+            currentTouchesWrapper.addUpdateTouch(touch);
+
             event.type = eventType;
-            touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
-            touchEvent.touches = event.touches;
+            touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });            
+            touchEvent.touches = currentTouchesWrapper.touchList;
             touchEvent.type = eventType;
+
+            // Awesomely, I figured out how to keep track of the touches in the "Touches" TouchList using an array.
+            // TODO: Do the same thing for the changedTouches and targetTouches properties of the TouchEvent.
+
+            // The other members of the TouchEvent are altKey, metaKey, ctrlKey, and shiftKey
 
             return touchEvent;
         }
 
         function touchChangedHandler(event) {
             var eventType,
+                touch,
                 touchEvent;
 
             // console.log("touchchanged!");
@@ -82,10 +138,12 @@
                 eventType = "touchleave";
             }
 
+            touch = new currentTouchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
+            currentTouchesWrapper.removeTouch(touch.identifier);
+
             event.type = eventType;
             touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
-            touchEvent.touches = event.changedTouches;
-            touchEvent.changedTouches = event.changedTouches;
+            touchEvent.touches = currentTouchesWrapper.touchList;
             touchEvent.type = eventType;
 
             return touchEvent;
@@ -362,51 +420,51 @@
     // Handling events on window to prevent unwanted super-bubbling
     // All mouse events are affected by touch fallback
     // commented out because unused
-//    function applySimpleEventTunnels(nameGenerator, eventGenerator) {
-//        // console.log("applySimpleEventTunnels");
-//        ["touchstart", "touchmove", "touchend", "touchmove", "touchleave"].forEach(function (eventName) {
-//            window.addEventListener(nameGenerator(eventName), function (evt) {
-//                if (!touching && findEventRegisteredNode(evt.target, eventName)) {
-//                    eventGenerator(evt, eventName, true);
-//                }
-//            });
-//        });
-//        if (window['on' + nameGenerator("touchenter").toLowerCase()] === undefined) {
-//            window.addEventListener(nameGenerator("touchmove"), function (evt) {
-//                var foundNode = findEventRegisteredNode(evt.target, "touchenter");
-//                if (touching) {
-//                    return;
-//                }
+    //    function applySimpleEventTunnels(nameGenerator, eventGenerator) {
+    //        // console.log("applySimpleEventTunnels");
+    //        ["touchstart", "touchmove", "touchend", "touchmove", "touchleave"].forEach(function (eventName) {
+    //            window.addEventListener(nameGenerator(eventName), function (evt) {
+    //                if (!touching && findEventRegisteredNode(evt.target, eventName)) {
+    //                    eventGenerator(evt, eventName, true);
+    //                }
+    //            });
+    //        });
+    //        if (window['on' + nameGenerator("touchenter").toLowerCase()] === undefined) {
+    //            window.addEventListener(nameGenerator("touchmove"), function (evt) {
+    //                var foundNode = findEventRegisteredNode(evt.target, "touchenter");
+    //                if (touching) {
+    //                    return;
+    //                }
 
-//                if (!foundNode || foundNode === window) {
-//                    return;
-//                }
-//                if (!foundNode.contains(evt.relatedTarget)) {
-//                    dispatchPointerEnter(foundNode, evt.relatedTarget, function (targetNode) {
-//                        eventGenerator(evt, "touchenter", false, targetNode, evt.relatedTarget);
-//                    });
-//                }
-//            });
-//        }
-//        if (window['on' + nameGenerator("touchleave").toLowerCase()] === undefined) {
-//            window.addEventListener(nameGenerator("touchleave"), function (evt) {
-//                var foundNode = findEventRegisteredNode(evt.target, "touchleave");
+    //                if (!foundNode || foundNode === window) {
+    //                    return;
+    //                }
+    //                if (!foundNode.contains(evt.relatedTarget)) {
+    //                    dispatchPointerEnter(foundNode, evt.relatedTarget, function (targetNode) {
+    //                        eventGenerator(evt, "touchenter", false, targetNode, evt.relatedTarget);
+    //                    });
+    //                }
+    //            });
+    //        }
+    //        if (window['on' + nameGenerator("touchleave").toLowerCase()] === undefined) {
+    //            window.addEventListener(nameGenerator("touchleave"), function (evt) {
+    //                var foundNode = findEventRegisteredNode(evt.target, "touchleave");
 
-//                if (touching) {
-//                    return;
-//                }
+    //                if (touching) {
+    //                    return;
+    //                }
 
-//                if (!foundNode || foundNode === window) {
-//                    return;
-//                }
-//                if (!foundNode.contains(evt.relatedTarget)) {
-//                    dispatchPointerLeave(foundNode, evt.relatedTarget, function (targetNode) {
-//                        eventGenerator(evt, "touchleave", false, targetNode, evt.relatedTarget);
-//                    });
-//                }
-//            });
-//        }
-//    }
+    //                if (!foundNode || foundNode === window) {
+    //                    return;
+    //                }
+    //                if (!foundNode.contains(evt.relatedTarget)) {
+    //                    dispatchPointerLeave(foundNode, evt.relatedTarget, function (targetNode) {
+    //                        eventGenerator(evt, "touchleave", false, targetNode, evt.relatedTarget);
+    //                    });
+    //                }
+    //            });
+    //        }
+    //    }
 
     CustomEvent.prototype = window.Event.prototype;
 
@@ -433,6 +491,8 @@
 
         head.appendChild(style);
     } ());
+
+    currentTouchesWrapper = new TouchListEmulation();
 
     window.CustomEvent = CustomEvent;
 
