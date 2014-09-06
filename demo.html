@@ -6,20 +6,28 @@
 </head>
 <body>
 
-<canvas id='backgroundCanvas' width='1000' height='1000' style='z-index:2; opacity: 0.5; position:absolute;'>
+<canvas id='backgroundCanvas' width='1000' height='1000' style='z-index:2; position:absolute;'>
 </canvas>
 
 Currently detected touch events:
 <div style='height:20em; overflow:hidden; border:solid 1px gray' />
-    <table id='myTable' class="table table-striped">
-        <thead id='myTableHead'>            
+    <table id='touchPropertiesTable' class="table table-striped">
+        <thead id='touchPropertiesTableHead'>            
         </thead>
-        <tbody id = 'myTableBody'>
+        <tbody id = 'touchPropertiesTableBody'>
             <!-- Javascript is used to fill in this table when the user touches the screen -->
         </tbody>
     </table>
 </div>
-foo bar
+<div>
+    <table id='counterTable' class='table table-striped'>
+        <thead id='counterTableHead'>
+        </thead>
+        <tbody id='counterTableBody'>
+            <!-- Javascript is used to fill in this table when the user touches the screen -->
+        </tbody>
+    </table>
+</div>
 
 </body>
 <script src="touchpolyfill.js">
@@ -27,34 +35,46 @@ foo bar
 
 <script>
     'use strict';
-    var tableMethods, canvasMethods;
-
-    window.addEventListener("touchstart", touch, false);
-    window.addEventListener("touchend", touch, false);
-    window.addEventListener("touchmove", touch, false);
-    window.addEventListener("touchcancel", touch, false);
-
-    //    document.ontouchstart = touch;
-    //    document.ontouchend = touch;
-    //    document.ontouchmove = touch;
-    //    document.ontouchcancel = touch;
-
+    var touchTableMethods, counterTableMethods, canvasMethods, touchEventCounters;
+   
     function touch(e) {
         var numberOfTouches, propertyList, i;
 
         e.preventDefault();
 
-        tableMethods.clearTable();
+        counterTableMethods.printData(touchEventCounters);
+
+        touchTableMethods.clearTable();
         canvasMethods.clearCanvas();
 
         propertyList = getPropertyList(e.touches[0])
-        tableMethods.printHeader(propertyList);
+        touchTableMethods.printHeader(propertyList);
 
         numberOfTouches = e.touches.length;
         for (i = 0; i < numberOfTouches; i++) {
-            tableMethods.printData(e.touches[i], propertyList);
+            touchTableMethods.printData(e.touches[i], propertyList);
             canvasMethods.drawCircle(e.touches[i]);
         }
+    }
+
+    function touchStart(e) {
+        touchEventCounters.start += 1;
+        touch(e);
+    }
+
+    function touchEnd(e) {
+        touchEventCounters.end += 1;
+        touch(e);
+    }
+
+    function touchMove(e) {
+        touchEventCounters.move += 1;
+        touch(e);
+    }
+
+    function touchCancel(e) {
+        toucheventcounters.cancel += 1;
+        touch(e);
     }
 
     // Return an array containing the names of the properties of the touch object.
@@ -67,20 +87,37 @@ foo bar
         return array;
     }
 
-    // This creates a closure for the methods that print data about touch events in a table.
-    tableMethods = (function () {
-        var myTableHead, myTableBody;
+    touchEventCounters = {
+        start: 0,
+        end: 0,
+        move: 0,
+        cancel: 0
+    }
 
-        myTableHead = document.getElementById('myTableHead');
-        myTableBody = document.getElementById('myTableBody');
+    window.addEventListener("touchstart", touchStart, false);
+    window.addEventListener("touchend", touchEnd, false);
+    window.addEventListener("touchmove", touchMove, false);
+    window.addEventListener("touchcancel", touchCancel, false);
+
+    // Prevent the touch events from raising a context menu.
+    window.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+    //    document.ontouchstart = touch;
+    //    document.ontouchend = touch;
+    //    document.ontouchmove = touch;
+    //    document.ontouchcancel = touch;
+
+    // This creates a closure for the methods that print data about touch events in a table.
+    touchTableMethods = (function () {
+        var touchPropertiesTableHead, touchPropertiesTableBody;
 
         function clearTable() {
-            myTableHead.innerHTML = '';
-            myTableBody.innerHTML = '';
+            touchPropertiesTableHead.innerHTML = '';
+            touchPropertiesTableBody.innerHTML = '';
         }
 
         function printHeader(propertyList) {
-            myTableHead.innerHTML = '<tr><th>' + propertyList.join('</th><th>') + '</th></tr>';
+            touchPropertiesTableHead.innerHTML = '<tr><th>' + propertyList.join('</th><th>') + '</th></tr>';
         }
 
         function printData(touch, propertyList) {
@@ -89,12 +126,44 @@ foo bar
             for (i = 0; i < propertyList.length; i++) {
                 rowHtml.push('<td>' + touch[propertyList[i]] + '</td>');
             }
-            myTableBody.innerHTML += rowHtml.join('');
+            touchPropertiesTableBody.innerHTML += rowHtml.join('');
         }
+
+        touchPropertiesTableHead = document.getElementById('touchPropertiesTableHead');
+        touchPropertiesTableBody = document.getElementById('touchPropertiesTableBody');        
 
         return {
             clearTable: clearTable,
             printHeader: printHeader,
+            printData: printData
+        };
+    })();
+
+    counterTableMethods = (function () {
+        var counterTableHead, counterTableBody;
+
+        function printData(touchEventCounters) {
+            var bodyHtml;
+
+            bodyHtml = [
+                '<tr><td>touchstart</td><td>',
+                touchEventCounters.start,
+                '</td></tr><tr><td>touchend</td><td>',
+                touchEventCounters.end,
+                '</td></tr><tr><td>touchmove</td><td>',
+                touchEventCounters.move,
+                '</td></tr><tr><td>touchcancel</td><td>',
+                touchEventCounters.cancel,
+                '</td><td></tr>'
+            ].join('');
+
+            counterTableBody.innerHTML = bodyHtml;
+        }
+
+        counterTableHead = document.getElementById('counterTableHead');
+        counterTableBody = document.getElementById('counterTableBody');
+
+        return {
             printData: printData
         };
     })();
@@ -107,9 +176,8 @@ foo bar
         context = backgroundCanvas.getContext('2d');
 
         // Draw a white square over the entirety of the canvas.
-        function clearCanvas() {
-            context.fillStyle = '#FFFFFF';
-            context.fillRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+        function clearCanvas() {            
+            context.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
         }
 
         function drawCircle(touch) {
