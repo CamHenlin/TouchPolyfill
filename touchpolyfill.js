@@ -18,8 +18,8 @@
         currentTouchesWrapper; // holds an object that keeps track of where the screen is being touched.
 
     // a constructor for an object that wraps a W3C compliant TouchList.
-    function TouchListEmulation() {
-        var touchList = []; // an array of W3C compliant touch objects.
+    function TouchListWrapper() {
+        var touchList = []; // an array of W3C compliant Touch objects.
 
         // constructor for W3C compliant touch object
         // http://www.w3.org/TR/touch-events/
@@ -57,11 +57,27 @@
             }
         }
 
+        // Return true if the current TouchList object contains a touch at the specified clientX, clientY.
+        // Returns false otherwise.
+        function containsTouchAt(clientX, clientY) {
+            var i;
+
+            for (i = 0; i < touchList.length; i += 1) {
+                if (touchList[i].clientX === clientX && touchList[i].clientY === clientY) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         // touchList is the actual W3C compliant TouchList object being emulated.
         this.touchList = touchList;
+
         this.Touch = Touch;
         this.addUpdateTouch = addUpdateTouch;
         this.removeTouch = removeTouch;
+        this.containsTouchAt = containsTouchAt;
     }
 
     // polyfill custom event
@@ -107,7 +123,7 @@
             currentTouchesWrapper.addUpdateTouch(touch);
 
             event.type = eventType;
-            touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });            
+            touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
             touchEvent.touches = currentTouchesWrapper.touchList;
             touchEvent.type = eventType;
 
@@ -354,7 +370,7 @@
         }
     }
 
-    function generateTouchEventProxyIfRegistered(eventName, touchPoint, target, eventObject, canBubble, relatedTarget) { // Check if user registered this event
+    function generateTouchEventProxyIfRegistered(eventName, touchPoint, target, eventObject, canBubble, relatedTarget) { // Check if user registered this event        
         // console.log("generateTouchEventProxyIfRegistered");
         if (findEventRegisteredNode(target, eventName)) {
             generateTouchEventProxy(eventName, touchPoint, target, eventObject, canBubble, relatedTarget);
@@ -492,7 +508,7 @@
         head.appendChild(style);
     } ());
 
-    currentTouchesWrapper = new TouchListEmulation();
+    currentTouchesWrapper = new TouchListWrapper();
 
     window.CustomEvent = CustomEvent;
 
@@ -587,9 +603,18 @@
                 var touchPoint = eventObject,
                     currentTarget = previousTargets[touchPoint.identifier];
 
-                // console.log("pointer move fired");
+                console.log("pointer move fired");
 
                 if (eventObject.pointerType === 'mouse') {
+                    return;
+                }
+
+                // pointermove fires over and over when a touch-point stays stationary.
+                // This is at odds with the other browsers that implement the W3C standard touch events
+                // which fire touchmove only when the touch-point actual moves.
+                // Therefore, return without doing anything if the pointermove event fired for a touch
+                // that hasn't moved.
+                if (currentTouchesWrapper.containsTouchAt(eventObject.clientX, eventObject.clientY)) {
                     return;
                 }
 
@@ -599,7 +624,6 @@
                 }
 
                 generateTouchEventProxyIfRegistered("touchmove", touchPoint, currentTarget, eventObject, true);
-
             });
         }
     } ());
