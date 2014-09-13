@@ -9,8 +9,8 @@
 <canvas id='backgroundCanvas' width='1000' height='1000' style='z-index:2; position:absolute;'>
 </canvas>
 
-Currently detected touch events:
-<div style='height:20em; overflow:hidden; border:solid 1px gray' />
+touches
+<div style='height:16em; overflow:hidden; border:solid 1px gray'>
     <table id='touchPropertiesTable' class="table table-striped">
         <thead id='touchPropertiesTableHead'>            
         </thead>
@@ -19,6 +19,19 @@ Currently detected touch events:
         </tbody>
     </table>
 </div>
+
+changed touches: (Red)
+<div style='height:16em; overflow:hidden; border:solid 1px gray'>
+    <table id='changedTouchesPropertiesTable' class="table table-striped">
+        <thead id='changedTouchesPropertiesTableHead'>            
+        </thead>
+        <tbody id = 'changedTouchesPropertiesTableBody'>
+            <!-- Javascript is used to fill in this table when the user touches the screen -->
+        </tbody>
+    </table>
+</div>
+
+
 <div>
     <table id='counterTable' class='table table-striped'>
         <thead id='counterTableHead'>
@@ -47,13 +60,25 @@ Currently detected touch events:
         touchTableMethods.clearTable();
         canvasMethods.clearCanvas();
 
-        propertyList = getPropertyList(e.touches[0])
-        touchTableMethods.printHeader(propertyList);
+        propertyList = getPropertyList(e.touches[0] || e.changedTouches[0])
+        touchTableMethods.printHeader('touches', propertyList);
+        touchTableMethods.printHeader('changedTouches', propertyList);
 
+
+        // print the properties of the Touch objects in the touches TouchList
         numberOfTouches = e.touches.length;
+        canvasMethods.setColor('green');
         for (i = 0; i < numberOfTouches; i++) {
-            touchTableMethods.printData(e.touches[i], propertyList);
+            touchTableMethods.printData('touches', e.touches[i], propertyList);
             canvasMethods.drawCircle(e.touches[i]);
+        }
+
+        // print the properties of the Touch objects in the changedTouches TouchList
+        numberOfTouches = e.changedTouches.length;
+        canvasMethods.setColor('red');
+        for (i = 0; i < numberOfTouches; i++) {
+            touchTableMethods.printData('changedTouches', e.changedTouches[i], propertyList);
+            canvasMethods.drawCircle(e.changedTouches[i]);
         }
     }
 
@@ -109,28 +134,51 @@ Currently detected touch events:
 
     // This creates a closure for the methods that print data about touch events in a table.
     touchTableMethods = (function () {
-        var touchPropertiesTableHead, touchPropertiesTableBody;
+        var touchPropertiesTableHead, touchPropertiesTableBody,
+            changedTouchesPropertiesTableHead, changedTouchesPropertiesTableBody;
 
         function clearTable() {
             touchPropertiesTableHead.innerHTML = '';
             touchPropertiesTableBody.innerHTML = '';
+            changedTouchesPropertiesTableHead.innerHTML = '';
+            changedTouchesPropertiesTableBody.innerHTML = '';
         }
 
-        function printHeader(propertyList) {
-            touchPropertiesTableHead.innerHTML = '<tr><th>' + propertyList.join('</th><th>') + '</th></tr>';
+        function printHeader(touchListName, propertyList) {
+            var header = '<tr><th>' + propertyList.join('</th><th>') + '</th></tr>'
+
+            switch (touchListName) {
+                case 'touches':
+                    touchPropertiesTableHead.innerHTML += header;
+                    break;
+                case 'changedTouches':
+                    changedTouchesPropertiesTableHead.innerHTML += header;
+                    break;
+            }
         }
 
-        function printData(touch, propertyList) {
+        function printData(touchListName, touch, propertyList) {
             var i, rowHtml;
             rowHtml = [];
             for (i = 0; i < propertyList.length; i++) {
                 rowHtml.push('<td>' + touch[propertyList[i]] + '</td>');
             }
-            touchPropertiesTableBody.innerHTML += rowHtml.join('');
+
+            switch (touchListName) {
+                case 'touches':
+                    touchPropertiesTableBody.innerHTML += rowHtml.join('');
+                    break;
+                case 'changedTouches':
+                    changedTouchesPropertiesTableBody.innerHTML += rowHtml.join('');
+                    break;
+            }
         }
 
         touchPropertiesTableHead = document.getElementById('touchPropertiesTableHead');
-        touchPropertiesTableBody = document.getElementById('touchPropertiesTableBody');        
+        touchPropertiesTableBody = document.getElementById('touchPropertiesTableBody');
+
+        changedTouchesPropertiesTableHead = document.getElementById('changedTouchesPropertiesTableHead');
+        changedTouchesPropertiesTableBody = document.getElementById('changedTouchesPropertiesTableBody');
 
         return {
             clearTable: clearTable,
@@ -170,28 +218,32 @@ Currently detected touch events:
 
     // This creates a closure for the methods that print circles where the user touches the screen.
     canvasMethods = (function () {
-        var backgroundCanvas, context;
+        var backgroundCanvas, context, color;
 
         backgroundCanvas = document.getElementById('backgroundCanvas');
         context = backgroundCanvas.getContext('2d');
 
         // Draw a white square over the entirety of the canvas.
-        function clearCanvas() {            
+        function clearCanvas() {
             context.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+        }
+
+        function setColor(sColor) {
+            context.fillStyle = sColor;
         }
 
         function drawCircle(touch) {
             context.beginPath();
-            context.arc(touch.clientX, touch.clientY, 50, 0, 2 * Math.PI, false);
-            context.fillStyle = 'green';
+            context.arc(touch.clientX, touch.clientY, 50, 0, 2 * Math.PI, false);            
             context.fill();
             context.lineWidth = 5;
-            context.strokeStyle = '#003300';
+            context.strokeStyle = '#000000';
             context.stroke();
         }
 
         return {
             clearCanvas: clearCanvas,
+            setColor: setColor,
             drawCircle: drawCircle
         };
     })();

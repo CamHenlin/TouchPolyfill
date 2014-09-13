@@ -10,12 +10,20 @@
     // We should start using 'use strict' as soon as we can get rid of the implied globals.
     // 'use strict';
 
-    var userAgent = navigator.userAgent,
+    // the timestamp of the last touch event processed.
+    // It is used to determine what touches should be in the changedTouches TouchList array.
+    var lastHwTimestamp = 0,
+    // whether or not to log events to console
+        logToConsole = false,
+        userAgent = navigator.userAgent,
         supportedEventsNames = ["touchstart", "touchmove", "touchend", "touchcancel", "touchleave"],
     // commented out because not used
     // upperCaseEventsNames = ["TouchStart", "TouchMove", "TouchEnd", "TouchCancel", "TouchLeave"],
         previousTargets = {},
-        currentTouchesWrapper; // holds an object that keeps track of where the screen is being touched.
+    // wraps a W3C compliant implementation of the "touches" TouchList
+        touchesWrapper,
+    // wraps a W3C compliant implementation of the "changedTouches" TouchList
+        changedTouchesWrapper;
 
     // a constructor for an object that wraps a W3C compliant TouchList.
     function TouchListWrapper() {
@@ -32,6 +40,17 @@
             this.clientY = clientY;
             this.pageX = pageX;
             this.pageY = pageY;
+        }
+
+        // Search the TouchList for a Touch with the given identifier.
+        // If it is found, return it.  Otherwise, return null;
+        function getTouch(identifier) {
+            var i;
+            for (i = 0; i < touchList.length; i += 1) {
+                if (touchList[i].identifier === identifier) {
+                    return touchList[i];
+                }
+            }
         }
 
         // If this is a new touch, add it to the TouchList.
@@ -57,13 +76,22 @@
             }
         }
 
-        // Return true if the current TouchList object contains a touch at the specified clientX, clientY.
+        function clearTouches() {
+            // According to http://stackoverflow.com/questions/1232040/how-to-empty-an-array-in-javascript
+            // this is the fastest way to clear the array.
+            while (touchList.length > 0) {
+                touchList.pop();
+            }
+        }
+
+        // Return true if the current TouchList object contains a touch at the specified screenX, clientY.
         // Returns false otherwise.
-        function containsTouchAt(clientX, clientY) {
+        // This is used to differentiate touches that have moved from those that haven't.
+        function containsTouchAt(screenX, screenY) {
             var i;
 
             for (i = 0; i < touchList.length; i += 1) {
-                if (touchList[i].clientX === clientX && touchList[i].clientY === clientY) {
+                if (touchList[i].screenX === screenX && touchList[i].screenY === screenY) {
                     return true;
                 }
             }
@@ -75,9 +103,15 @@
         this.touchList = touchList;
 
         this.Touch = Touch;
+        this.getTouch = getTouch;
         this.addUpdateTouch = addUpdateTouch;
         this.removeTouch = removeTouch;
+        this.clearTouches = clearTouches;
         this.containsTouchAt = containsTouchAt;
+    }
+
+    function touchesAreAtSameSpot(touch0, touch1) {
+        return touch0.screenX === touch1.screenX && touch0.screenY === touch1.screenY;
     }
 
     // polyfill custom event
@@ -104,33 +138,63 @@
     function generateTouchClonedEvent(sourceEvent, newName, canBubble, target, relatedTarget) {
         var evObj;
 
-        // console.log("generating touch cloned");
         function touchHandler(event) {
             var eventType,
+                oldTouch,
                 touch,
-                touchEvent;
+                touchEvent,
+                isTouchChanged;
 
-            // console.log("touch!");            
+            log("touch!");
 
-            eventType = "";
             if (event.type === "pointerdown") {
                 eventType = "touchstart";
             } else if (event.type === "pointermove") {
                 eventType = "touchmove";
+            } else {
+                throw new Error('touchHandler received invalid event type: ' + eventType + '. Valid event types are pointerdown and pointermove');
+            }
+            log(eventType);
+
+            touch = new touchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
+
+            // Remove, from changedTouches, any Touch that is no longer being touched, or is being touched
+            // in exactly the same place.
+            // In order to make sure that simultaneous touches don't kick each other off of the changedTouches array
+            // (because they are processed as different pointer events), skip this if the lastHwTimestamp hasn't increased.
+            if (event.hwTimestamp > lastHwTimestamp) {
+                (function () {
+                    var i, changedTouchList, changedTouch, matchingTouch, identifier;
+                    changedTouchList = changedTouchesWrapper.touchList;
+                    for (i = 0; i < changedTouchList.length; i += 1) {
+                        changedTouch = changedTouchList[i];
+                        identifier = changedTouch.identifier;
+                        matchingTouch = touchesWrapper.getTouch(identifier);
+
+                        if (!matchingTouch || touchesAreAtSameSpot(matchingTouch, changedTouch)) {
+                            changedTouchesWrapper.removeTouch(identifier);
+                        }
+                    }
+                } ());
             }
 
-            touch = new currentTouchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
-            currentTouchesWrapper.addUpdateTouch(touch);
+            log("generating touch cloned");
+
+            touchesWrapper.addUpdateTouch(touch);
+            changedTouchesWrapper.addUpdateTouch(touch);
 
             event.type = eventType;
             touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
-            touchEvent.touches = currentTouchesWrapper.touchList;
+
+            touchEvent.touches = touchesWrapper.touchList;
+            touchEvent.changedTouches = changedTouchesWrapper.touchList;
             touchEvent.type = eventType;
 
             // Awesomely, I figured out how to keep track of the touches in the "Touches" TouchList using an array.
             // TODO: Do the same thing for the changedTouches and targetTouches properties of the TouchEvent.
+            /// TODONE! changedTouched is implemented; targetTouches remains
 
-            // The other members of the TouchEvent are altKey, metaKey, ctrlKey, and shiftKey
+            // The other members of the TouchEvent are altKey, metaKey, ctrlKey, and shiftKey            
 
             return touchEvent;
         }
@@ -140,7 +204,7 @@
                 touch,
                 touchEvent;
 
-            // console.log("touchchanged!");
+            log("touchchanged!");
             event.changedTouches = [];
             event.changedTouches.length = 1;
             event.changedTouches[0] = event;
@@ -154,12 +218,21 @@
                 eventType = "touchleave";
             }
 
-            touch = new currentTouchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
-            currentTouchesWrapper.removeTouch(touch.identifier);
+            touch = new touchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.screenX, event.clientY, event.pageX, event.pageY);
+
+            // This is a new touch event if it happened at a greater time than the last touch event.
+            // If it is a new touch event, clear out the changedTouches TouchList.
+            if (event.hwTimestamp > lastHwTimestamp) {
+                changedTouchesWrapper.clearTouches();
+            }
+
+            touchesWrapper.removeTouch(touch.identifier);
+            changedTouchesWrapper.addUpdateTouch(touch);
 
             event.type = eventType;
             touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
-            touchEvent.touches = currentTouchesWrapper.touchList;
+            touchEvent.touches = touchesWrapper.touchList;
+            touchEvent.changedTouches = changedTouchesWrapper.touchList;
             touchEvent.type = eventType;
 
             return touchEvent;
@@ -179,8 +252,10 @@
         };
 
         // Fire event
-        // console.log("dispatching!");
+        log("dispatching!");
         sourceEvent.target.dispatchEvent(evObj);
+
+        lastHwTimestamp = event.hwTimestamp;
     }
 
     function generateTouchEventProxy(name, touchPoint, target, eventObject, canBubble, relatedTarget) {
@@ -188,7 +263,7 @@
     }
 
     function registerOrUnregisterEvent(item, name, func, enable) {
-        // console.log("registerOrUnregisterEvent");
+        log("registerOrUnregisterEvent");
         if (item.__handJobjsRegisteredEvents === undefined) {
             item.__handJobjsRegisteredEvents = [];
         }
@@ -200,7 +275,7 @@
             }
 
             item.__handJobjsRegisteredEvents[name] = 1;
-            // console.log("adding event " + name);
+            log("adding event " + name);
             item.addEventListener(name, func, false);
         } else {
 
@@ -211,7 +286,7 @@
                     return;
                 }
             }
-            // console.log("removing event");
+            log("removing event");
             item.removeEventListener(name, func);
             item.__handJobjsRegisteredEvents[name] = 0;
         }
@@ -225,7 +300,7 @@
             return name;
         } // easier than doing this right and replacing all the references
 
-        // console.log("setTouchAware " + enable + " " +eventName);
+        log("setTouchAware " + enable + " " + eventName);
         // Leaving tokens
         if (!item.__handJobjsGlobalRegisteredEvents) {
             item.__handJobjsGlobalRegisteredEvents = [];
@@ -237,7 +312,7 @@
             }
             item.__handJobjsGlobalRegisteredEvents[eventName] = 1;
 
-            // console.log(item.__handJobjsGlobalRegisteredEvents[eventName]);
+            log(item.__handJobjsGlobalRegisteredEvents[eventName]);
         } else {
             if (item.__handJobjsGlobalRegisteredEvents[eventName] !== undefined) {
                 item.__handJobjsGlobalRegisteredEvents[eventName] -= 1;
@@ -251,10 +326,10 @@
 
         //switch (eventName) {
         //    case "touchenter":
-        //      // console.log("touchenter");
+        //      log("touchenter");
         //      break;
         //    case "touchleave":
-        //      // console.log("touchleave");
+        //      log("touchleave");
         targetEvent = nameGenerator(eventName);
 
         if (item['on' + targetEvent.toLowerCase()] !== undefined) {
@@ -269,18 +344,18 @@
         var current = root.prototype ? root.prototype.addEventListener : root.addEventListener;
 
         function customAddEventListener(name, func, capture) {
-            // console.log("customAddEventListener");
-            // console.log(name);
+            log("customAddEventListener");
+            log(name);
 
             if (supportedEventsNames.indexOf(name) !== -1) {
-                // console.log("setting touch aware...");
+                log("setting touch aware...");
                 setTouchAware(this, name, true);
             }
             current.call(this, name, func, capture);
         }
 
-        // console.log("intercepting add event listener!");
-        // console.log(root);        
+        log("intercepting add event listener!");
+        log(root);
 
         if (root.prototype) {
             root.prototype.addEventListener = customAddEventListener;
@@ -290,7 +365,7 @@
     }
 
     function handleOtherEvent(eventObject, name) {
-        // console.log("handle other event");
+        log("handle other event");
         if (eventObject.preventManipulation) {
             eventObject.preventManipulation();
         }
@@ -344,21 +419,13 @@
         }
     }
 
-    // commented out because it isn't used
-    //    function getPrefixEventName(prefix, eventName) {
-    //        var upperCaseIndex = supportedEventsNames.indexOf(eventName),
-    //            newEventName = prefix + upperCaseEventsNames[upperCaseIndex];
-
-    //        return newEventName;
-    //    }
-
     function checkEventRegistration(node, eventName) {
-        // console.log("checkEventRegistration");
+        log("checkEventRegistration");
         return node.__handJobjsGlobalRegisteredEvents && node.__handJobjsGlobalRegisteredEvents[eventName];
     }
 
     function findEventRegisteredNode(node, eventName) {
-        // console.log("findEventRegisteredNode");
+        log("findEventRegisteredNode");
         while (node && !checkEventRegistration(node, eventName)) {
             node = node.parentNode;
         }
@@ -371,7 +438,7 @@
     }
 
     function generateTouchEventProxyIfRegistered(eventName, touchPoint, target, eventObject, canBubble, relatedTarget) { // Check if user registered this event        
-        // console.log("generateTouchEventProxyIfRegistered");
+        log("generateTouchEventProxyIfRegistered");
         if (findEventRegisteredNode(target, eventName)) {
             generateTouchEventProxy(eventName, touchPoint, target, eventObject, canBubble, relatedTarget);
         }
@@ -402,7 +469,7 @@
 
     //generateProxy receives a node to dispatch the event
     function dispatchPointerEnter(currentTarget, relatedTarget, generateProxy) {
-        // console.log("dispatchPointerEnter");
+        log("dispatchPointerEnter");
         var commonParent = getFirstCommonNode(currentTarget, relatedTarget),
             node = currentTarget,
             nodelist = [];
@@ -421,7 +488,7 @@
 
     //generateProxy receives a node to dispatch the event
     function dispatchPointerLeave(currentTarget, relatedTarget, generateProxy) {
-        // console.log("dispatchPointerLeave");
+        log("dispatchPointerLeave");
         var commonParent = getFirstCommonNode(currentTarget, relatedTarget),
             node = currentTarget;
         while (node && node !== commonParent) {//target range: this to the direct child of parent relatedTarget
@@ -433,54 +500,11 @@
         }
     }
 
-    // Handling events on window to prevent unwanted super-bubbling
-    // All mouse events are affected by touch fallback
-    // commented out because unused
-    //    function applySimpleEventTunnels(nameGenerator, eventGenerator) {
-    //        // console.log("applySimpleEventTunnels");
-    //        ["touchstart", "touchmove", "touchend", "touchmove", "touchleave"].forEach(function (eventName) {
-    //            window.addEventListener(nameGenerator(eventName), function (evt) {
-    //                if (!touching && findEventRegisteredNode(evt.target, eventName)) {
-    //                    eventGenerator(evt, eventName, true);
-    //                }
-    //            });
-    //        });
-    //        if (window['on' + nameGenerator("touchenter").toLowerCase()] === undefined) {
-    //            window.addEventListener(nameGenerator("touchmove"), function (evt) {
-    //                var foundNode = findEventRegisteredNode(evt.target, "touchenter");
-    //                if (touching) {
-    //                    return;
-    //                }
-
-    //                if (!foundNode || foundNode === window) {
-    //                    return;
-    //                }
-    //                if (!foundNode.contains(evt.relatedTarget)) {
-    //                    dispatchPointerEnter(foundNode, evt.relatedTarget, function (targetNode) {
-    //                        eventGenerator(evt, "touchenter", false, targetNode, evt.relatedTarget);
-    //                    });
-    //                }
-    //            });
-    //        }
-    //        if (window['on' + nameGenerator("touchleave").toLowerCase()] === undefined) {
-    //            window.addEventListener(nameGenerator("touchleave"), function (evt) {
-    //                var foundNode = findEventRegisteredNode(evt.target, "touchleave");
-
-    //                if (touching) {
-    //                    return;
-    //                }
-
-    //                if (!foundNode || foundNode === window) {
-    //                    return;
-    //                }
-    //                if (!foundNode.contains(evt.relatedTarget)) {
-    //                    dispatchPointerLeave(foundNode, evt.relatedTarget, function (targetNode) {
-    //                        eventGenerator(evt, "touchleave", false, targetNode, evt.relatedTarget);
-    //                    });
-    //                }
-    //            });
-    //        }
-    //    }
+    function log(s) {
+        if (logToConsole) {
+            console.log(s.toString());
+        }
+    }
 
     CustomEvent.prototype = window.Event.prototype;
 
@@ -508,7 +532,8 @@
         head.appendChild(style);
     } ());
 
-    currentTouchesWrapper = new TouchListWrapper();
+    touchesWrapper = new TouchListWrapper();
+    changedTouchesWrapper = new TouchListWrapper();
 
     window.CustomEvent = CustomEvent;
 
@@ -554,77 +579,72 @@
     }
 
     (function () {
-        if (typeof (window.ontouchstart) === "object") {
-            return;
-        }
-        // Handling move on window to detect pointerleave/out/over
-        if (typeof (window.ontouchstart) === "undefined") {
-            window.addEventListener('pointerdown', function (eventObject) {
-                // console.log("pointerdownfired");
-                var touchPoint = eventObject;
+        // Handling move on window to detect pointerleave/out/over        
+        window.addEventListener('pointerdown', function (eventObject) {
+            log("pointerdownfired");
+            var touchPoint = eventObject;
 
-                if (eventObject.pointerType === 'mouse') {
-                    return;
-                }
+            if (eventObject.pointerType === 'mouse') {
+                return;
+            }
 
-                previousTargets[touchPoint.identifier] = touchPoint.target;
-                generateTouchEventProxyIfRegistered("touchenter", touchPoint, touchPoint.target, eventObject, true);
+            previousTargets[touchPoint.identifier] = touchPoint.target;
+            generateTouchEventProxyIfRegistered("touchenter", touchPoint, touchPoint.target, eventObject, true);
 
-                //pointerenter should not be bubbled
-                dispatchPointerEnter(touchPoint.target, null, function (targetNode) {
-                    generateTouchEventProxy("touchenter", touchPoint, targetNode, eventObject, false);
-                });
-
-                generateTouchEventProxyIfRegistered("touchstart", touchPoint, touchPoint.target, eventObject, true);
-
+            //pointerenter should not be bubbled
+            dispatchPointerEnter(touchPoint.target, null, function (targetNode) {
+                generateTouchEventProxy("touchenter", touchPoint, targetNode, eventObject, false);
             });
 
-            window.addEventListener('pointerup', function (eventObject) {
-                var touchPoint = eventObject,
+            generateTouchEventProxyIfRegistered("touchstart", touchPoint, touchPoint.target, eventObject, true);
+        });
+
+        window.addEventListener('pointerup', function (eventObject) {
+            var touchPoint = eventObject,
                     currentTarget = previousTargets[touchPoint.identifier];
 
-                // console.log("pointer up fired");
+            log("pointer up fired");
 
-                if (eventObject.pointerType === 'mouse') {
-                    return;
-                }
+            if (eventObject.pointerType === 'mouse') {
+                return;
+            }
 
-                generateTouchEventProxyIfRegistered("touchend", touchPoint, currentTarget, eventObject, true);
-                generateTouchEventProxyIfRegistered("touchleave", touchPoint, currentTarget, eventObject, true);
+            generateTouchEventProxyIfRegistered("touchend", touchPoint, currentTarget, eventObject, true);
+            generateTouchEventProxyIfRegistered("touchleave", touchPoint, currentTarget, eventObject, true);
 
-                //pointerleave should not be bubbled
-                dispatchPointerLeave(currentTarget, null, function (targetNode) {
-                    generateTouchEventProxy("touchleave", touchPoint, targetNode, eventObject, false);
-                });
-
+            //pointerleave should not be bubbled
+            dispatchPointerLeave(currentTarget, null, function (targetNode) {
+                generateTouchEventProxy("touchleave", touchPoint, targetNode, eventObject, false);
             });
+        });
 
-            window.addEventListener('pointermove', function (eventObject) {
-                var touchPoint = eventObject,
+        window.addEventListener('pointermove', function (eventObject) {
+            var touchPoint = eventObject,
                     currentTarget = previousTargets[touchPoint.identifier];
 
-                console.log("pointer move fired");
+            log("pointer move fired");
 
-                if (eventObject.pointerType === 'mouse') {
-                    return;
-                }
+            if (eventObject.pointerType === 'mouse') {
+                return;
+            }
 
-                // pointermove fires over and over when a touch-point stays stationary.
-                // This is at odds with the other browsers that implement the W3C standard touch events
-                // which fire touchmove only when the touch-point actual moves.
-                // Therefore, return without doing anything if the pointermove event fired for a touch
-                // that hasn't moved.
-                if (currentTouchesWrapper.containsTouchAt(eventObject.clientX, eventObject.clientY)) {
-                    return;
-                }
+            log('x: ' + eventObject.screenX + ', y: ' + eventObject.screenY);
 
-                // If force preventDefault
-                if (currentTarget && checkPreventDefault(currentTarget) === true) {
-                    eventObject.preventDefault();
-                }
+            // pointermove fires over and over when a touch-point stays stationary.
+            // This is at odds with the other browsers that implement the W3C standard touch events
+            // which fire touchmove only when the touch-point actually moves.
+            // Therefore, return without doing anything if the pointermove event fired for a touch
+            // that hasn't moved.
+            if (touchesWrapper.containsTouchAt(eventObject.screenX, eventObject.screenY)) {
+                return;
+            }
 
-                generateTouchEventProxyIfRegistered("touchmove", touchPoint, currentTarget, eventObject, true);
-            });
-        }
+            // If force preventDefault
+            if (currentTarget && checkPreventDefault(currentTarget) === true) {
+                eventObject.preventDefault();
+            }
+
+            generateTouchEventProxyIfRegistered("touchmove", touchPoint, currentTarget, eventObject, true);
+        });
     } ());
 } ());
