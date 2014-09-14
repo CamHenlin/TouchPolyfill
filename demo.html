@@ -9,8 +9,14 @@
 <canvas id='backgroundCanvas' width='1000' height='1000' style='z-index:2; position:absolute;'>
 </canvas>
 
-touches
-<div style='height:16em; overflow:hidden; border:solid 1px gray'>
+<div style='height:100px;'>
+    <div style='background-color:Purple; color:White; width:100px; height:100px; z-index:3; position: absolute; opacity: 0.5;'>
+        Div floating on top of drawing canvas
+    </div>
+</div>
+
+<div style='height:16em; overflow:hidden; border:solid 1px gray;'>
+    touches
     <table id='touchPropertiesTable' class="table table-striped">
         <thead id='touchPropertiesTableHead'>            
         </thead>
@@ -20,12 +26,23 @@ touches
     </table>
 </div>
 
-changed touches: (Red)
 <div style='height:16em; overflow:hidden; border:solid 1px gray'>
+    changed touches: (Red)
     <table id='changedTouchesPropertiesTable' class="table table-striped">
         <thead id='changedTouchesPropertiesTableHead'>            
         </thead>
         <tbody id = 'changedTouchesPropertiesTableBody'>
+            <!-- Javascript is used to fill in this table when the user touches the screen -->
+        </tbody>
+    </table>
+</div>
+
+<div style='height:16em; overflow:hidden; border:solid 1px gray'>
+    target touches
+    <table id='targetTouchesPropertiesTable' class="table table-striped">
+        <thead id='targetTouchesPropertiesTableHead'>            
+        </thead>
+        <tbody id = 'targetTouchesPropertiesTableBody'>
             <!-- Javascript is used to fill in this table when the user touches the screen -->
         </tbody>
     </table>
@@ -63,6 +80,7 @@ changed touches: (Red)
         propertyList = getPropertyList(e.touches[0] || e.changedTouches[0])
         touchTableMethods.printHeader('touches', propertyList);
         touchTableMethods.printHeader('changedTouches', propertyList);
+        touchTableMethods.printHeader('targetTouches', propertyList);
 
 
         // print the properties of the Touch objects in the touches TouchList
@@ -79,6 +97,13 @@ changed touches: (Red)
         for (i = 0; i < numberOfTouches; i++) {
             touchTableMethods.printData('changedTouches', e.changedTouches[i], propertyList);
             canvasMethods.drawCircle(e.changedTouches[i]);
+        }
+
+        // print the properties of the Touch objects in the targetTouches TouchList
+        numberOfTouches = e.targetTouches.length;
+        for (i = 0; i < numberOfTouches; i++) {
+            touchTableMethods.printData('targetTouches', e.targetTouches[i], propertyList);
+            // canvasMethods.drawCircle(e.targetTouches[i]);
         }
     }
 
@@ -135,13 +160,16 @@ changed touches: (Red)
     // This creates a closure for the methods that print data about touch events in a table.
     touchTableMethods = (function () {
         var touchPropertiesTableHead, touchPropertiesTableBody,
-            changedTouchesPropertiesTableHead, changedTouchesPropertiesTableBody;
+            changedTouchesPropertiesTableHead, changedTouchesPropertiesTableBody,
+            targetTouchesPropertiesTableHead, targetTouchesPropertiesTableBody;
 
         function clearTable() {
             touchPropertiesTableHead.innerHTML = '';
             touchPropertiesTableBody.innerHTML = '';
             changedTouchesPropertiesTableHead.innerHTML = '';
             changedTouchesPropertiesTableBody.innerHTML = '';
+            targetTouchesPropertiesTableHead.innerHTML = '';
+            targetTouchesPropertiesTableBody.innerHTML = '';
         }
 
         function printHeader(touchListName, propertyList) {
@@ -154,12 +182,15 @@ changed touches: (Red)
                 case 'changedTouches':
                     changedTouchesPropertiesTableHead.innerHTML += header;
                     break;
+                case 'targetTouches':
+                    targetTouchesPropertiesTableHead.innerHTML += header;
             }
         }
 
         function printData(touchListName, touch, propertyList) {
             var i, rowHtml;
             rowHtml = [];
+            
             for (i = 0; i < propertyList.length; i++) {
                 rowHtml.push('<td>' + touch[propertyList[i]] + '</td>');
             }
@@ -171,6 +202,8 @@ changed touches: (Red)
                 case 'changedTouches':
                     changedTouchesPropertiesTableBody.innerHTML += rowHtml.join('');
                     break;
+                case 'targetTouches':
+                    targetTouchesPropertiesTableBody.innerHTML += rowHtml.join('');
             }
         }
 
@@ -179,6 +212,9 @@ changed touches: (Red)
 
         changedTouchesPropertiesTableHead = document.getElementById('changedTouchesPropertiesTableHead');
         changedTouchesPropertiesTableBody = document.getElementById('changedTouchesPropertiesTableBody');
+
+        targetTouchesPropertiesTableHead = document.getElementById('targetTouchesPropertiesTableHead');
+        targetTouchesPropertiesTableBody = document.getElementById('targetTouchesPropertiesTableBody');
 
         return {
             clearTable: clearTable,
@@ -223,6 +259,9 @@ changed touches: (Red)
         backgroundCanvas = document.getElementById('backgroundCanvas');
         context = backgroundCanvas.getContext('2d');
 
+        backgroundCanvas.width = window.innerWidth;
+        backgroundCanvas.height = window.innerHeight;
+
         // Draw a white square over the entirety of the canvas.
         function clearCanvas() {
             context.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
@@ -234,7 +273,7 @@ changed touches: (Red)
 
         function drawCircle(touch) {
             context.beginPath();
-            context.arc(touch.clientX, touch.clientY, 50, 0, 2 * Math.PI, false);            
+            context.arc(touch.clientX, touch.clientY, 50, 0, 2 * Math.PI, false);
             context.fill();
             context.lineWidth = 5;
             context.strokeStyle = '#000000';
