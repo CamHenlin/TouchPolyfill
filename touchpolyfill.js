@@ -23,7 +23,9 @@
     // wraps a W3C compliant implementation of the "touches" TouchList
         touchesWrapper,
     // wraps a W3C compliant implementation of the "changedTouches" TouchList
-        changedTouchesWrapper;
+        changedTouchesWrapper,
+    // wraps a W3C compliant implementation of the "targetTouches" TouchList
+        targetTouchesWrapper;
 
     // a constructor for an object that wraps a W3C compliant TouchList.
     function TouchListWrapper() {
@@ -54,7 +56,7 @@
         }
 
         // If this is a new touch, add it to the TouchList.
-        // If this is an existing touch, update it in the TouchList.
+        // If this is an existing touch, update it in the TouchList.        
         function addUpdateTouch(touch) {
             var i;
             for (i = 0; i < touchList.length; i += 1) {
@@ -136,7 +138,22 @@
 
     // Touch events
     function generateTouchClonedEvent(sourceEvent, newName, canBubble, target, relatedTarget) {
-        var evObj;
+        var evObj, oldTouch, oldTarget;
+
+        // Updates the targetTouches so that it contains the touches from the "touches" TouchList
+        // that have the same target as the touch that triggered this event.
+        function updateTargetTouches(thisTouchTarget, touchesTouchList) {
+            var i, touch;
+
+            targetTouchesWrapper.clearTouches();
+
+            for (i = 0; i < touchesTouchList.length; i++) {
+                touch = touchesTouchList[i];
+                if (touch.target.isSameNode(thisTouchTarget)) {
+                    targetTouchesWrapper.addUpdateTouch(touch);
+                }
+            }
+        }
 
         function touchHandler(event) {
             var eventType,
@@ -156,7 +173,8 @@
             }
             log(eventType);
 
-            touch = new touchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
+            touch = new touchesWrapper.Touch(event.pointerId, (event.type==='pointerdown' ? event.target : oldTarget),
+                event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
 
             // Remove, from changedTouches, any Touch that is no longer being touched, or is being touched
             // in exactly the same place.
@@ -182,19 +200,22 @@
 
             touchesWrapper.addUpdateTouch(touch);
             changedTouchesWrapper.addUpdateTouch(touch);
+            updateTargetTouches(touch.target, touchesWrapper.touchList);
 
             event.type = eventType;
             touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
 
             touchEvent.touches = touchesWrapper.touchList;
             touchEvent.changedTouches = changedTouchesWrapper.touchList;
+            touchEvent.targetTouches = targetTouchesWrapper.touchList;
             touchEvent.type = eventType;
 
             // Awesomely, I figured out how to keep track of the touches in the "Touches" TouchList using an array.
             // TODO: Do the same thing for the changedTouches and targetTouches properties of the TouchEvent.
-            /// TODONE! changedTouched is implemented; targetTouches remains
+            // TODONE! changedTouches is implemented.
+            // TODONE! targetTouches is implemented.
 
-            // The other members of the TouchEvent are altKey, metaKey, ctrlKey, and shiftKey            
+            // The other members of the TouchEvent are altKey, metaKey, ctrlKey, and shiftKey
 
             return touchEvent;
         }
@@ -218,7 +239,7 @@
                 eventType = "touchleave";
             }
 
-            touch = new touchesWrapper.Touch(event.pointerId, event.target, event.screenX, event.screenY, event.screenX, event.clientY, event.pageX, event.pageY);
+            touch = new touchesWrapper.Touch(event.pointerId, oldTarget, event.screenX, event.screenY, event.screenX, event.clientY, event.pageX, event.pageY);
 
             // This is a new touch event if it happened at a greater time than the last touch event.
             // If it is a new touch event, clear out the changedTouches TouchList.
@@ -228,14 +249,27 @@
 
             touchesWrapper.removeTouch(touch.identifier);
             changedTouchesWrapper.addUpdateTouch(touch);
+            updateTargetTouches(touch.target, touchesWrapper.touchList);
 
             event.type = eventType;
             touchEvent = new CustomEvent(eventType, { bubbles: true, cancelable: true });
             touchEvent.touches = touchesWrapper.touchList;
             touchEvent.changedTouches = changedTouchesWrapper.touchList;
+            touchEvent.targetTouches = targetTouchesWrapper.touchList;
             touchEvent.type = eventType;
 
             return touchEvent;
+        }
+
+        // An important difference between the MS pointer events and the W3C touch events
+        // is that for pointer events except for pointerdown, all target the element that the touch
+        // is over when the event is fired.
+        // The W3C touch events target the element where the touch originally started.
+        // Therefore, when these events are fired, we must make this change manually.
+        if (sourceEvent.type !== 'pointerdown') {            
+            oldTouch = touchesWrapper.getTouch(sourceEvent.pointerId);
+            oldTarget = oldTouch.target;            
+            sourceEvent.target = oldTarget;
         }
 
         if (sourceEvent.type === "pointerdown" || sourceEvent.type === "pointermove") {
@@ -534,6 +568,7 @@
 
     touchesWrapper = new TouchListWrapper();
     changedTouchesWrapper = new TouchListWrapper();
+    targetTouchesWrapper = new TouchListWrapper();
 
     window.CustomEvent = CustomEvent;
 
