@@ -173,7 +173,7 @@
             }
             log(eventType);
 
-            touch = new touchesWrapper.Touch(event.pointerId, (event.type==='pointerdown' ? event.target : oldTarget),
+            touch = new touchesWrapper.Touch(event.pointerId, (event.type === 'pointerdown' ? event.target : oldTarget),
                 event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
 
             // Remove, from changedTouches, any Touch that is no longer being touched, or is being touched
@@ -266,9 +266,9 @@
         // is over when the event is fired.
         // The W3C touch events target the element where the touch originally started.
         // Therefore, when these events are fired, we must make this change manually.
-        if (sourceEvent.type !== 'pointerdown') {            
+        if (sourceEvent.type !== 'pointerdown') {
             oldTouch = touchesWrapper.getTouch(sourceEvent.pointerId);
-            oldTarget = oldTouch.target;            
+            oldTarget = oldTouch.target;
             sourceEvent.target = oldTarget;
         }
 
@@ -614,12 +614,24 @@
     }
 
     (function () {
+        // Returns true if and only if the event should be ignored.
+        function ignorePointerEvent(event) {
+            // Don't interpret mouse pointers as touches
+            if (event.pointerType === 'mouse')
+                return true;
+            // A user reported that when the input type is 'pen', the pointermove event fires with a pressure of 0
+            // before the pen touches the screen.  We want to ignore this.
+            if (event.pointerType === 'pen' && event.pressure === 0 && event.type === 'pointermove')
+                return true;
+            return false;
+        }
+
         // Handling move on window to detect pointerleave/out/over        
         window.addEventListener('pointerdown', function (eventObject) {
             log("pointerdownfired");
             var touchPoint = eventObject;
 
-            if (eventObject.pointerType === 'mouse') {
+            if (ignorePointerEvent(eventObject)) {
                 return;
             }
 
@@ -640,7 +652,7 @@
 
             log("pointer up fired");
 
-            if (eventObject.pointerType === 'mouse') {
+            if (ignorePointerEvent(eventObject)) {
                 return;
             }
 
@@ -659,7 +671,7 @@
 
             log("pointer move fired");
 
-            if (eventObject.pointerType === 'mouse') {
+            if (ignorePointerEvent(eventObject)) {
                 return;
             }
 
