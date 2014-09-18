@@ -56,7 +56,7 @@
         }
 
         // If this is a new touch, add it to the TouchList.
-        // If this is an existing touch, update it in the TouchList.        
+        // If this is an existing touch, update it in the TouchList.
         function addUpdateTouch(touch) {
             var i;
             for (i = 0; i < touchList.length; i += 1) {
@@ -239,7 +239,7 @@
                 eventType = "touchleave";
             }
 
-            touch = new touchesWrapper.Touch(event.pointerId, oldTarget, event.screenX, event.screenY, event.screenX, event.clientY, event.pageX, event.pageY);
+            touch = new touchesWrapper.Touch(event.pointerId, oldTarget, event.screenX, event.screenY, event.clientX, event.clientY, event.pageX, event.pageY);
 
             // This is a new touch event if it happened at a greater time than the last touch event.
             // If it is a new touch event, clear out the changedTouches TouchList.
@@ -471,7 +471,7 @@
         }
     }
 
-    function generateTouchEventProxyIfRegistered(eventName, touchPoint, target, eventObject, canBubble, relatedTarget) { // Check if user registered this event        
+    function generateTouchEventProxyIfRegistered(eventName, touchPoint, target, eventObject, canBubble, relatedTarget) { // Check if user registered this event
         log("generateTouchEventProxyIfRegistered");
         if (findEventRegisteredNode(target, eventName)) {
             generateTouchEventProxy(eventName, touchPoint, target, eventObject, canBubble, relatedTarget);
@@ -501,16 +501,16 @@
         return lastmatch;
     }
 
-    //generateProxy receives a node to dispatch the event
+    // generateProxy receives a node to dispatch the event
     function dispatchPointerEnter(currentTarget, relatedTarget, generateProxy) {
         log("dispatchPointerEnter");
         var commonParent = getFirstCommonNode(currentTarget, relatedTarget),
             node = currentTarget,
             nodelist = [];
 
-        while (node && node !== commonParent) {//target range: this to the direct child of parent relatedTarget
+        while (node && node !== commonParent) { // target range: this to the direct child of parent relatedTarget
             if (checkEventRegistration(node, "touchenter")) {
-                //check if any parent node has pointerenter
+                // check if any parent node has pointerenter
                 nodelist.push(node);
             }
             node = node.parentNode;
@@ -520,14 +520,14 @@
         }
     }
 
-    //generateProxy receives a node to dispatch the event
+    // generateProxy receives a node to dispatch the event
     function dispatchPointerLeave(currentTarget, relatedTarget, generateProxy) {
         log("dispatchPointerLeave");
         var commonParent = getFirstCommonNode(currentTarget, relatedTarget),
             node = currentTarget;
         while (node && node !== commonParent) {//target range: this to the direct child of parent relatedTarget
             if (checkEventRegistration(node, "touchleave")) {
-                //check if any parent node has pointerleave
+                // check if any parent node has pointerleave
                 generateProxy(node);
             }
             node = node.parentNode;
@@ -626,7 +626,7 @@
             return false;
         }
 
-        // Handling move on window to detect pointerleave/out/over        
+        // Handling move on window to detect pointerleave/out/over
         window.addEventListener('pointerdown', function (eventObject) {
             log("pointerdownfired");
             var touchPoint = eventObject;
@@ -638,7 +638,7 @@
             previousTargets[touchPoint.identifier] = touchPoint.target;
             generateTouchEventProxyIfRegistered("touchenter", touchPoint, touchPoint.target, eventObject, true);
 
-            //pointerenter should not be bubbled
+            // pointerenter should not be bubbled
             dispatchPointerEnter(touchPoint.target, null, function (targetNode) {
                 generateTouchEventProxy("touchenter", touchPoint, targetNode, eventObject, false);
             });
