@@ -620,10 +620,10 @@
             if (event.pointerType === 'mouse') {
                 return true;
             }
-            // Don't interpret pointer events on the scrollbars as touch events.
+            // Don't interpret pointerdown events on the scrollbars as touch events.
             // It appears to be the case that when the event is on the scrollbar in IE,
             // event.x === 0 and event.y === 0
-            if (event.x === 0 && event.y === 0) {
+            if (event.type === 'pointerdown' && event.x === 0 && event.y === 0) {
                 return true;
             }
             // A user reported that when the input type is 'pen', the pointermove event fires with a pressure of 0
