@@ -273,7 +273,7 @@
 
         function drawCircle(touch) {
             context.beginPath();
-            context.arc(touch.clientX, touch.clientY, 50, 0, 2 * Math.PI, false);
+            context.arc(touch.pageX, touch.pageY, 50, 0, 2 * Math.PI, false);
             context.fill();
             context.lineWidth = 5;
             context.strokeStyle = '#000000';
