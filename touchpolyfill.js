@@ -617,12 +617,20 @@
         // Returns true if and only if the event should be ignored.
         function ignorePointerEvent(event) {
             // Don't interpret mouse pointers as touches
-            if (event.pointerType === 'mouse')
+            if (event.pointerType === 'mouse') {
                 return true;
+            }
+            // Don't interpret pointer events on the scrollbars as touch events.
+            // It appears to be the case that when the event is on the scrollbar in IE,
+            // event.x === 0 and event.y === 0
+            if (event.x === 0 && event.y === 0) {
+                return true;
+            }
             // A user reported that when the input type is 'pen', the pointermove event fires with a pressure of 0
             // before the pen touches the screen.  We want to ignore this.
-            if (event.pointerType === 'pen' && event.pressure === 0 && event.type === 'pointermove')
+            if (event.pointerType === 'pen' && event.pressure === 0 && event.type === 'pointermove') {
                 return true;
+            }
             return false;
         }
 
