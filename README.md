@@ -8,7 +8,7 @@ Because you should be able to use whichever types of events you want in your cod
 
 Usage
 ===
-Include touchpolyfill.js or touchpolyfill.min.js on your page and keep using touch events on the worst mobile browser.
+Include touchpolyfill.js or touchpolyfill.min.js on your page and keep using touch events.
 
 Demo
 ===
