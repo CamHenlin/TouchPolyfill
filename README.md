@@ -1,12 +1,10 @@
 Touch Polyfill
 ===
-This is a JavaScript polyfill that adds touchevent functionality to browsers with pointerevent functionality, Internet Explorer 10 and 11.
+This is a JavaScript polyfill that adds (TouchEvent)[http://www.w3.org/TR/touch-events/] functionality to browsers with (PointerEvent)[http://www.w3.org/TR/pointerevents/] functionality, such as Internet Explorer 10 and 11.
 
 Why?
 ===
-I have a multitouch HTML5 game that I've been working on. I got a Windows Phone and realized that my game seemed to work fine in IE mobile other than the fact that it wouldn't respond to touchevents at all. I realized that Microsoft had decided to support an alternate type of touch events called pointerevents! I reached out to the Microsoft @ie account on Twitter, and two Internet Explorer program managers responded that I should simply write my game using pointer events and use a Microsoft-supported JavaScript polyfill, hand.js, to support pointerevents on Safari and the Android browsers. Basically, Microsoft is arguing that JavaScript developers should use their low-marketshare implementation of mobile touch, and polyfill their functionality into the two browsers with the highest marketshare. That didn't really seem right so this polyfill was born.
-
-For further thoughts on Internet Explorer's lack of touchevents, see this article by one of the developers of the polyfill: [IE: The Gift that Keeps on Giving](http://danielsadventure.info/touch/iegift.html)
+Because you should be able to use whichever types of events you want in your code, and also to ease transition of old products on to new platforms without rewriting code.
 
 Usage
 ===
