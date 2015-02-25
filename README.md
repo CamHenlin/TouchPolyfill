@@ -1,6 +1,6 @@
 Touch Polyfill
 ===
-This is a JavaScript polyfill that adds (TouchEvent)[http://www.w3.org/TR/touch-events/] functionality to browsers with (PointerEvent)[http://www.w3.org/TR/pointerevents/] functionality, such as Internet Explorer 10 and 11.
+This is a JavaScript polyfill that adds [TouchEvent](http://www.w3.org/TR/touch-events/) functionality to browsers with [PointerEvent](http://www.w3.org/TR/pointerevents/) functionality, such as Internet Explorer 10 and 11.
 
 Why?
 ===
