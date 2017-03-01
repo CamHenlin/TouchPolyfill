@@ -12,7 +12,7 @@ Include touchpolyfill.js or touchpolyfill.min.js on your page and keep using tou
 
 Demo
 ===
-You can view a functional demo of the touch polyfill at: [demo](http://henlin.org/touchpolyfill/demo.html)
+You can view a functional demo of the touch polyfill at: [demo](http://henlin.net/TouchPolyfill/demo.html)
 
 People Using Touch Polyfill
 ===
