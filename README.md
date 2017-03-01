@@ -18,7 +18,7 @@ People Using Touch Polyfill
 ===
 [HTML5 Fractal Playground](http://danielsadventure.info/html5fractal/docs/intro.html)
 
-[Executive Man](http://executive-man.com/)
+[Executive Man](http://henlin.net/ExecutiveMan)
 
 Do you have a project using touchpolyfill? Let us know and we'll get you on the list!
 
